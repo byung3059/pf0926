@@ -1,0 +1,104 @@
+.canvas_wrap {
+	height: 100vh;
+	background: #fff;
+}
+
+#project_visual {
+	.slg {
+		display: none;
+	}
+}
+
+#project_site {
+	padding: 240px 40px;
+
+	h2 {
+		margin-bottom: 80px;
+		text-align: center;
+		font-size: 64px;
+		font-weight: 900;
+		text-transform: uppercase;
+	}
+
+	.pro_list {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 40px;
+	}
+
+	.pro_site {
+		position: relative;
+
+		a {
+			position: relative;
+			display: block;
+			width: 100%;
+			aspect-ratio: 16/9;
+			border-radius: 16px;
+			overflow: hidden;
+			background: no-repeat center center/cover;
+			p {
+				position: absolute;
+				bottom: 40px;
+				left: 40px;
+				font-size: 40px;
+				line-height: 1;
+				font-weight: 700;
+				color: #fff;
+
+				&.--c-b {
+					color: #222;
+				}
+			}
+			&::before {
+				content: "SITE VIEW";
+				z-index: 9;
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background: rgba($color: #000000, $alpha: 0.8);
+
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				flex-direction: column;
+
+				font-size: 40px;
+				line-height: 1;
+				font-weight: 900;
+				color: #fff;
+
+				opacity: 0;
+				visibility: hidden;
+
+				transition: 0.3s;
+			}
+			&:hover {
+				&::before {
+					opacity: 1;
+					visibility: visible;
+				}
+			}
+		}
+
+		@for $i from 1 through 10 {
+			&.--#{if($i < 10, "0" + $i, $i)} {
+				a {
+					background: url("/images/#{$i}.jpg") no-repeat center center/cover;
+				}
+			}
+		}
+	}
+}
+@media (max-width: 1440px) {
+	#project_site .pro_list {
+		gap: 24px;
+	}
+	#project_site .pro_site a p {
+		bottom: 24px;
+		left: 24px;
+		font-size: 32px;
+	}
+}

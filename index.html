@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ko">
+	<!-- https://codepen.io/urbgimtam/pen/XWXdypQ -->
+
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="format-detection" content="no" />
+
+		<title>2026 PORTFOLIO</title>
+		<link rel="stylesheet" href="./css/reset.min.css" />
+		<link rel="stylesheet" href="./css/fonts.css" />
+		<link rel="stylesheet" href="./css/layout.min.css" />
+		<link rel="stylesheet" href="./css/hd.min.css" />
+		<link rel="stylesheet" href="./css/style.min.css" />
+
+		<script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.5/gsap.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.5/ScrollTrigger.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.1/ScrollToPlugin.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/CustomEase.min.js"></script>
+		<script src="https://unpkg.com/@studio-freight/lenis"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+		<script>
+			// 유리 캔버스 설정 (빠진 값은 canvas.js 기본값 사용)
+			window.GLASS_CONFIG = {
+				bgColor: "#000000", // 배경색 (마우스 그라데이션은 아래 CURSOR_CONFIG의 glow* 사용)
+				textColor: "#ffffff", // 타이틀 글자색
+				pointColor: "#ffffff", // 포인트 점 색
+				glassColor: "#ffffff", // 유리 색 (흰색 = 무색)
+				clear: [1, 1, 1], // 도형별 투명도 0~1 (너트, 링, 큐브)
+				chroma: 0.1, // 무지개 번짐 세기 (0 = 번짐 없음)
+				saturation: 0, // 채도 (0 = 흑백)
+				refraction: 1, // 굴절 세기
+				shine: 1.0, // 반사광(하이라이트) 세기
+				edgeRainbow: 0, // 모서리 무지개 세기 0~1
+				edgeDark: 0, // 모서리 어두운 테두리 0~1 (밝은 배경일 때 윤곽용)
+				blur: 0.02, // 유리 속 번짐(블러) 0 = 선명, 기본 0.1
+				rainbowFrom: 0.45, // 무지개가 시작되는 기울기 0~1 (낮을수록 면 전체로 넓게)
+				rainbowDeep: 0.4, // 무지개 진하기 0~1 (1 = 진한 빨강·남색까지 프리즘처럼)
+				rimWhite: 0.6, // 실루엣 흰 테두리 0~1
+				bodyShade: 0, // 몸통 음영 0~1 (흰 배경에서 입체감)
+				darkReflect: 0, // 어두운 반사 띠 세기 0~1 (스튜디오 유리 느낌)
+				reflectFringe: 0, // 반사 띠 경계의 색 갈라짐 폭 (호박/파랑 테두리, 0 = 흑백)
+				lightReflect: 0.55, // 밝은 반사 띠 세기 0~1 (어두운 배경에서 입체감)
+
+				// 뒤 타이틀 글자
+				fontFamily: "Unbounded", // 폰트 (페이지에 로드된 폰트)
+				textWeight: 900, // 굵기
+				textSize: 140, // 크기(px) — 화면 1024px 초과
+				textSizeM: 11.5, // 크기(vw) — 화면 1024px 이하
+				lineHeight: 1, // 줄 간격 (글자 크기 배수, 1.2 = 120%)
+				textAlign: "left", // 가로 정렬: "left" | "center" | "right"
+				textVAlign: "bottom", // 세로 정렬: "top" | "center" | "bottom"
+				textX: 40, // 가로 여백(px): left면 왼쪽에서, right면 오른쪽에서, center면 가운데에서 이동(+오른쪽)
+				textY: 40, // 세로 여백(px): top이면 위에서, bottom이면 아래에서, center면 가운데에서 이동(+아래)
+
+				hold: 1, // 도형 유지 시간(초)
+				morph: 1.5, // 변형 시간(초)
+				dragSpeed: 0.008, // 드래그 회전 감도 (클수록 조금만 끌어도 많이 돎)
+				dragInertia: 0.95, // 놓은 뒤 관성 0~1 (1에 가까울수록 오래 돎, 0 = 바로 멈춤)
+			};
+		</script>
+		<script src="./js/canvas.js" defer></script>
+		<script>
+			// 전역 커서 + 배경 그라데이션 설정 (빠진 값은 cursor.js 기본값 사용)
+			window.CURSOR_CONFIG = {
+				// 마우스 따라다니는 배경 그라데이션 (페이지 전체, 첫 화면 캔버스도 같은 값 사용)
+				glowColor: "rgba(255, 255, 255, 0.06)", // 그라데이션 색 (rgba로 투명도, 비우면 없음)
+				glowSize: 0.2, // 크기 (화면 대각선 대비 0~1)
+				glowEase: 0.08, // 따라가는 속도 0~1 (낮을수록 느리고 부드럽게)
+
+				// 커서
+				size: 40, // 기본 지름(px)
+				color: "rgba(255, 255, 255, 0.1)", // 커서 색 (difference 블렌드라 배경에 따라 반전돼 보임)
+				blend: "difference", // "normal"로 하면 색 그대로
+				mono: true, // 커서를 항상 흑백으로 (컬러 이미지 위에서도 반전색 대신 흑/백)
+				ease: 1, // 따라오는 속도 0~1 (1 = 마우스와 동일, 낮을수록 늦게 따라옴)
+				linkScale: 3, // 링크·버튼 위에서 확대 배수
+				dragSize: 120, // 유리 도형 위 지름(px)
+				dragText: "DRAG | CLICK", // 유리 도형 위 글자 (비우면 글자 없음, 원 안에서 자동 줄바꿈·가운데 정렬)
+			};
+		</script>
+		<script src="./js/cursor.js" defer></script>
+		<script src="./js/custom.js" defer></script>
+	</head>
+
+	<body>
+		<header id="header">
+			<div class="logo">
+				<h1>2026 PORTFOLIO</h1>
+			</div>
+
+			<nav id="gnb">
+				<ul>
+					<li><a href="#" data-target="intro">intro</a></li>
+					<li><a href="#" data-target="pf01">design_project</a></li>
+					<li><a href="#" data-target="work_list">work_project</a></li>
+					<li><a href="#" data-target="profile">About Us</a></li>
+				</ul>
+			</nav>
+
+			<div class="m_menu_btn">
+				<button>MENU</button>
+			</div>
+		</header>
+
+		<main id="main">
+			<section id="project_visual">
+				<div class="slg">
+					<div class="tit">
+						<h2>Detail<br />Oriented. <span class="point">.</span></h2>
+					</div>
+				</div>
+				<div class="canvas_wrap"></div>
+			</section>
+			<section id="project_site">
+				<h2>project</h2>
+
+				<div class="pro_list">
+					<div class="pro_site --01">
+						<a href="">
+							<p>리에의원</p>
+						</a>
+					</div>
+					<div class="pro_site --02">
+						<a href="">
+							<p class="--c-b">연세탑내과의원</p>
+						</a>
+					</div>
+					<div class="pro_site --03">
+						<a href="">
+							<p>프로미스비뇨의학과의원</p>
+						</a>
+					</div>
+					<div class="pro_site --04">
+						<a href="">
+							<p>연세포레온안과</p>
+						</a>
+					</div>
+					<div class="pro_site --05">
+						<a href="">
+							<p class="--c-b">드림권내과</p>
+						</a>
+					</div>
+					<div class="pro_site --06">
+						<a href="">
+							<p>동탄시티병원-건강검진센터</p>
+						</a>
+					</div>
+					<div class="pro_site --07">
+						<a href="">
+							<p>완성형외과의원</p>
+						</a>
+					</div>
+					<div class="pro_site --08">
+						<a href="">
+							<p>KITC 투데이투자방송</p>
+						</a>
+					</div>
+					<div class="pro_site --09">
+						<a href="">
+							<p>낭만치유농업</p>
+						</a>
+					</div>
+					<div class="pro_site --10">
+						<a href="">
+							<p>코닥미니샷</p>
+						</a>
+					</div>
+				</div>
+			</section>
+		</main>
+	</body>
+</html>
