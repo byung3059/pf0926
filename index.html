@@ -28,21 +28,21 @@
 				textColor: "#ffffff", // 타이틀 글자색
 				pointColor: "#ffffff", // 포인트 점 색
 				glassColor: "#ffffff", // 유리 색 (흰색 = 무색)
-				clear: [1, 1, 1], // 도형별 투명도 0~1 (너트, 링, 큐브)
-				chroma: 0.1, // 무지개 번짐 세기 (0 = 번짐 없음)
-				saturation: 0, // 채도 (0 = 흑백)
+				clear: [1, 1, 1, 1], // 도형별 투명도 0~1 (너트, 링, 큐브, 유리 블록)
+				chroma: 0.45, // 무지개 번짐 세기 (0 = 번짐 없음)
+				saturation: 1.15, // 채도 (0 = 흑백)
 				refraction: 1, // 굴절 세기
 				shine: 1.0, // 반사광(하이라이트) 세기
-				edgeRainbow: 0, // 모서리 무지개 세기 0~1
+				edgeRainbow: 0.8, // 모서리 무지개 세기 0~1
 				edgeDark: 0, // 모서리 어두운 테두리 0~1 (밝은 배경일 때 윤곽용)
 				blur: 0.02, // 유리 속 번짐(블러) 0 = 선명, 기본 0.1
-				rainbowFrom: 0.45, // 무지개가 시작되는 기울기 0~1 (낮을수록 면 전체로 넓게)
-				rainbowDeep: 0.4, // 무지개 진하기 0~1 (1 = 진한 빨강·남색까지 프리즘처럼)
-				rimWhite: 0.6, // 실루엣 흰 테두리 0~1
+				rainbowFrom: 0.3, // 무지개가 시작되는 기울기 0~1 (낮을수록 면 전체로 넓게)
+				rainbowDeep: 0.1, // 무지개 진하기 0~1 (1 = 진한 빨강·남색까지 프리즘처럼)
+				rimWhite: 0.75, // 실루엣 흰 테두리 0~1
 				bodyShade: 0, // 몸통 음영 0~1 (흰 배경에서 입체감)
 				darkReflect: 0, // 어두운 반사 띠 세기 0~1 (스튜디오 유리 느낌)
-				reflectFringe: 0, // 반사 띠 경계의 색 갈라짐 폭 (호박/파랑 테두리, 0 = 흑백)
-				lightReflect: 0.55, // 밝은 반사 띠 세기 0~1 (어두운 배경에서 입체감)
+				reflectFringe: 0.02, // 반사 띠 경계의 색 갈라짐 폭 (호박/파랑 테두리, 0 = 흑백)
+				lightReflect: 0.5, // 밝은 반사 띠 세기 0~1 (어두운 배경에서 입체감)
 
 				// 뒤 타이틀 글자
 				fontFamily: "Unbounded", // 폰트 (페이지에 로드된 폰트)
@@ -52,13 +52,36 @@
 				lineHeight: 1, // 줄 간격 (글자 크기 배수, 1.2 = 120%)
 				textAlign: "left", // 가로 정렬: "left" | "center" | "right"
 				textVAlign: "bottom", // 세로 정렬: "top" | "center" | "bottom"
-				textX: 40, // 가로 여백(px): left면 왼쪽에서, right면 오른쪽에서, center면 가운데에서 이동(+오른쪽)
-				textY: 40, // 세로 여백(px): top이면 위에서, bottom이면 아래에서, center면 가운데에서 이동(+아래)
+				textX: 80, // 가로 여백(px): left면 왼쪽에서, right면 오른쪽에서, center면 가운데에서 이동(+오른쪽)
+				textY: 80, // 세로 여백(px): top이면 위에서, bottom이면 아래에서, center면 가운데에서 이동(+아래)
+
+				// 타이틀 반응형 — CSS의 @media (max-width: 숫자)처럼 화면 너비가 그 값 이하일 때 덮어씀 (작은 값이 우선)
+				// 바꿀 수 있는 값: fontFamily, textWeight, textSize, textSizeM, lineHeight, textAlign, textVAlign, textX, textY, textColor, pointColor
+				// textSize(px)를 적은 구간은 1024px 이하여도 textSizeM(vw) 대신 textSize(px) 사용
+				responsive: {
+					1440: { textX: 40, textY: 40 },
+					768: { textX: 20, textY: 40 },
+					480: { textY: 24 },
+				},
 
 				hold: 1, // 도형 유지 시간(초)
 				morph: 1.5, // 변형 시간(초)
 				dragSpeed: 0.008, // 드래그 회전 감도 (클수록 조금만 끌어도 많이 돎)
 				dragInertia: 0.95, // 놓은 뒤 관성 0~1 (1에 가까울수록 오래 돎, 0 = 바로 멈춤)
+
+				// 도형
+				startShape: 3, // 처음 보이는 도형 (0 너트, 1 링, 2 큐브, 3 유리 블록) — 클릭하면 다음 도형으로 변형
+				blades: {
+					// 유리 블록 도형 모양
+					count: 6, // 블록 개수
+					inner: 0.45, // 중심에서 블록 안쪽 끝까지 거리 (클수록 가운데 구멍이 커짐)
+					length: 1.65, // 블록 길이 (바깥 방향)
+					width: 1.05, // 블록 폭
+					thick: 0.42, // 블록 두께
+					round: 0.1, // 모서리 둥글기 (두께의 절반보다 작게)
+					twist: 30, // 프로펠러처럼 비튼 각도(도) — 0 = 정면으로 납작, 90 = 옆면이 보임
+					skew: 24, // 중심에서 옆으로 비껴 나가는 각도(도) — 0 = 중심에서 곧게 뻗음
+				},
 			};
 		</script>
 		<script src="./js/canvas.js" defer></script>
@@ -77,11 +100,12 @@
 				mono: true, // 커서를 항상 흑백으로 (컬러 이미지 위에서도 반전색 대신 흑/백)
 				ease: 1, // 따라오는 속도 0~1 (1 = 마우스와 동일, 낮을수록 늦게 따라옴)
 				linkScale: 3, // 링크·버튼 위에서 확대 배수
-				dragSize: 120, // 유리 도형 위 지름(px)
+				dragSize: 80, // 유리 도형 위 지름(px)
 				dragText: "DRAG | CLICK", // 유리 도형 위 글자 (비우면 글자 없음, 원 안에서 자동 줄바꿈·가운데 정렬)
 			};
 		</script>
 		<script src="./js/cursor.js" defer></script>
+		<script src="./js/project_featured.js" defer></script>
 		<script src="./js/custom.js" defer></script>
 	</head>
 

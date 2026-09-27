@@ -38,6 +38,9 @@
 			textX: 0, // 가로 여백(px): left면 왼쪽에서, right면 오른쪽에서, center면 가운데에서 이동(+오른쪽)
 			textY: 0, // 세로 여백(px): top이면 위에서, bottom이면 아래에서, center면 가운데에서 이동(+아래)
 			morph: 1.6, // 변형 시간(초)
+			startShape: 3, // 처음 보이는 도형 (0 너트, 1 링, 2 큐브, 3 유리 블록)
+			mobileDpr: 1.5, // 모바일 최대 해상도 배율 (PC는 2)
+			mobileSamples: 8, // 모바일 유리 셰이더 샘플 수 (PC는 16, 낮을수록 가볍고 번짐이 거칠어짐)
 		},
 		window.GLASS_CONFIG || {},
 	);
@@ -48,9 +51,21 @@
 	if (GC.bgGlowSize === undefined && CC.glowSize !== undefined) CFG.bgGlowSize = CC.glowSize;
 	if (GC.bgGlowEase === undefined && CC.glowEase !== undefined) CFG.bgGlowEase = CC.glowEase;
 	["bgColor", "bgColor2", "textColor", "pointColor", "glassColor"].forEach((k) => (CFG[k] = String(CFG[k]).trim()));
-	const TXT_COLOR = CFG.textColor;
-	const PRI_COLOR = CFG.pointColor;
 	if (!Array.isArray(CFG.clear) || CFG.clear.length < 3) CFG.clear = [0, 1, 0];
+	// 유리 블록 도형 모양 (GLASS_CONFIG.blades 로 일부만 덮어써도 됨)
+	CFG.blades = Object.assign(
+		{
+			count: 6, // 블록 개수
+			inner: 0.45, // 중심에서 블록 안쪽 끝까지 거리
+			length: 1.65, // 블록 길이 (바깥 방향)
+			width: 1.05, // 블록 폭
+			thick: 0.42, // 블록 두께
+			round: 0.14, // 모서리 둥글기
+			twist: 30, // 프로펠러처럼 비튼 각도(도)
+			skew: 24, // 중심에서 옆으로 비껴 나가는 각도(도)
+		},
+		(window.GLASS_CONFIG || {}).blades || {},
+	);
 	const MORPH = CFG.morph;
 
 	const wrap = document.querySelector(".canvas_wrap");
@@ -60,8 +75,21 @@
 	canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
 	wrap.appendChild(canvas);
 
-	const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-	const DPR = Math.min(window.devicePixelRatio || 1, 2);
+	// 모바일(터치 기기·작은 화면)은 GPU 부담을 줄임: 해상도 배율·유리 셰이더 샘플 수·안티앨리어싱
+	const MOBILE = matchMedia("(pointer: coarse)").matches || Math.min(screen.width, screen.height) <= 768;
+	const SAMPLES = Math.max(1, Math.round(MOBILE ? CFG.mobileSamples : 16));
+
+	// WebGL을 못 쓰면 DOM 타이틀을 대신 보여줌 (흰 화면 방지)
+	let renderer;
+	try {
+		if (!window.THREE) throw new Error("three.js not loaded");
+		renderer = new THREE.WebGLRenderer({ canvas, antialias: !MOBILE });
+	} catch (e) {
+		canvas.remove();
+		(wrap.closest("#project_visual") || document.body).classList.add("is-no-webgl");
+		return;
+	}
+	const DPR = Math.min(window.devicePixelRatio || 1, MOBILE ? CFG.mobileDpr : 2);
 	renderer.setPixelRatio(DPR);
 	renderer.setClearColor(new THREE.Color(CFG.bgColor), 1);
 	renderer.autoClear = false;
@@ -94,14 +122,47 @@
 	const textTex = new THREE.CanvasTexture(tc);
 	textTex.minFilter = THREE.LinearFilter;
 	textTex.generateMipmaps = false;
+
+	/* 반응형: GLASS_CONFIG.responsive = { 1440: {...}, 768: {...} }
+	   CSS의 max-width 미디어 쿼리처럼 화면 너비가 그 값 이하일 때 덮어씀 (작은 쪽이 우선)
+	   breakpoint에 textSize(px)를 적으면 1024px 이하의 textSizeM(vw) 규칙보다 우선 */
+	const RESP_KEYS = ["textColor", "pointColor", "fontFamily", "textWeight", "textSize", "textSizeM", "lineHeight", "textAlign", "textVAlign", "textX", "textY"];
+	const BASE = {};
+	RESP_KEYS.forEach((k) => (BASE[k] = CFG[k]));
+	const RESP = CFG.responsive || {};
+	const BPS = Object.keys(RESP)
+		.map(Number)
+		.filter((n) => !isNaN(n))
+		.sort((a, b) => b - a); // 큰 값부터 적용 → 작은 값이 마지막에 덮어씀
+	let sizePx = false; // true면 화면 크기와 상관없이 textSize(px) 사용
+	function applyResponsive() {
+		const vw = window.innerWidth;
+		Object.assign(CFG, BASE);
+		sizePx = false;
+		BPS.forEach((bp) => {
+			if (vw > bp) return;
+			const o = RESP[bp] || {};
+			RESP_KEYS.forEach((k) => o[k] !== undefined && (CFG[k] = typeof o[k] === "string" ? o[k].trim() : o[k]));
+			if (o.textSizeM !== undefined) sizePx = false;
+			if (o.textSize !== undefined) sizePx = true;
+		});
+	}
+	function redrawTitle(W, H) {
+		applyResponsive();
+		drawTitle(W, H);
+		// breakpoint에서 폰트/굵기를 바꿨는데 아직 안 불러왔으면 불러온 뒤 다시 그림
+		const fk = `${CFG.textWeight} 120px "${CFG.fontFamily}"`;
+		if (!document.fonts.check(fk)) document.fonts.load(fk).then(() => drawTitle(W, H), () => {});
+	}
+
 	function drawTitle(W, H) {
 		tc.width = Math.max(2, Math.floor(W * DPR));
 		tc.height = Math.max(2, Math.floor(H * DPR));
 		tctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 		// 배경색·그라데이션은 셰이더에서 칠함 (마우스 추적) → 여기선 글자만 투명 캔버스에
 		tctx.clearRect(0, 0, W, H);
-		// 크기: 화면 1024px 초과면 textSize(px), 이하면 textSizeM(vw)
-		const fs = W <= 1024 ? (W * CFG.textSizeM) / 100 : CFG.textSize;
+		// 크기: 화면 1024px 초과면 textSize(px), 이하면 textSizeM(vw) — responsive에서 textSize를 적은 구간은 textSize(px)
+		const fs = !sizePx && W <= 1024 ? (W * CFG.textSizeM) / 100 : CFG.textSize;
 		const lh = fs * CFG.lineHeight;
 		tctx.font = `${CFG.textWeight} ${fs}px ${CFG.fontFamily}, "Arial Black", sans-serif`;
 		tctx.textAlign = "left";
@@ -126,10 +187,10 @@
 						? W - w - CFG.textX
 						: W / 2 - w / 2 + CFG.textX;
 			const y = firstBase + lh * i;
-			tctx.fillStyle = TXT_COLOR;
+			tctx.fillStyle = CFG.textColor;
 			tctx.fillText(ln, x, y);
 			if (w2) {
-				tctx.fillStyle = PRI_COLOR;
+				tctx.fillStyle = CFG.pointColor;
 				tctx.fillText(pointText, x + w1, y);
 			}
 		});
@@ -312,7 +373,97 @@
 		buildShape(ringProf(2.0, 0.72, 1.0, 0.34, 0.22), new THREE.Matrix4().makeRotationX(Math.PI / 2), true),
 		// 2: 정육면체
 		buildShape(lineProf({ outB: polyR(4, 2.6 / Math.SQRT2, SQ), outT: polyR(4, 2.6 / Math.SQRT2, SQ), inT: zero, inB: zero, y0: -1.3, y1: 1.3 })),
+		// 3: 유리 블록 (꽃잎처럼 원형 배치)
+		buildBlades(),
 	];
+	while (CFG.clear.length < SHAPES.length) CFG.clear.push(1);
+
+	/* 유리 블록: 둘레 N조각을 count개 묶음으로 나눠 묶음마다 모서리 둥근 직육면체 하나를 만듦
+	   → 다른 도형과 정점 수·순서가 같아서 링/너트의 각 부분이 가까운 블록으로 갈라지며 모핑됨
+	   묶음의 첫/끝 단면은 한 점으로 모아 뚜껑(평평한 끝면)을 닫고, 블록 사이 이음은 면적 0이라 안 보임 */
+	function buildBlades() {
+		const B = CFG.blades;
+		const COUNT = B.count,
+			LEN = B.length,
+			HW = B.width / 2,
+			HT = B.thick / 2;
+		// 단면(둥근 사각형) 둘레를 K점으로 균일 분할
+		function rectProfile(hw, ht, r) {
+			r = Math.max(0.005, Math.min(r, hw, ht));
+			const pl = [];
+			const corner = (cy, cz, a0) => {
+				for (let i = 0; i <= 8; i++) {
+					const a = a0 + (Math.PI / 2) * (i / 8);
+					pl.push([cy + Math.cos(a) * r, cz + Math.sin(a) * r]);
+				}
+			};
+			corner(hw - r, ht - r, 0);
+			corner(-hw + r, ht - r, Math.PI / 2);
+			corner(-hw + r, -ht + r, Math.PI);
+			corner(hw - r, -ht + r, (Math.PI * 3) / 2);
+			pl.push(pl[0]);
+			const len = [0];
+			for (let i = 1; i < pl.length; i++) len.push(len[i - 1] + Math.hypot(pl[i][0] - pl[i - 1][0], pl[i][1] - pl[i - 1][1]));
+			const total = len[len.length - 1];
+			const out = [];
+			for (let i = 0, j = 1; i < K; i++) {
+				const d = (total * i) / K;
+				while (j < pl.length - 1 && len[j] < d) j++;
+				const f = (d - len[j - 1]) / (len[j] - len[j - 1] || 1);
+				out.push([pl[j - 1][0] + (pl[j][0] - pl[j - 1][0]) * f, pl[j - 1][1] + (pl[j][1] - pl[j - 1][1]) * f]);
+			}
+			return out;
+		}
+		const tw = (B.twist * Math.PI) / 180,
+			sk = (B.skew * Math.PI) / 180;
+		function makeTable(reverse) {
+			const table = new Array(N);
+			for (let b = 0; b < COUNT; b++) {
+				const s0 = Math.round((b * N) / COUNT),
+					s1 = Math.round(((b + 1) * N) / COUNT),
+					m = s1 - s0;
+				// 링/너트와 같은 방향에 오도록 (그 도형들은 X축 90° 회전 → 각도 부호 반대)
+				const phi = -(((s0 + s1) / 2 / N) * Math.PI * 2);
+				for (let j = 0; j < m; j++) {
+					const cap = j === 0 || j === m - 1;
+					// 길이 방향 위치: 양 끝에 촘촘하게 (끝 모서리 라운드용)
+					const s = cap ? (j === 0 ? 0 : LEN) : LEN * (0.5 - 0.5 * Math.cos((Math.PI * (j - 1)) / (m - 3)));
+					const d = Math.min(s, LEN - s);
+					const inset = d < B.round ? B.round - Math.sqrt(Math.max(0, B.round * B.round - (B.round - d) * (B.round - d))) : 0;
+					let prof = cap ? new Array(K).fill([0, 0]) : rectProfile(HW - inset, HT - inset, B.round - inset * 0.6);
+					if (reverse) prof = prof.slice().reverse();
+					table[s0 + j] = prof.map(([y, z]) => {
+						let x = B.inner + s;
+						// 1) 길이축 기준 비틀기 (프로펠러처럼)
+						const y1 = y * Math.cos(tw) - z * Math.sin(tw),
+							z1 = y * Math.sin(tw) + z * Math.cos(tw);
+						// 2) 안쪽 끝 기준으로 옆으로 기울이기 (중심에서 살짝 비껴 나가게)
+						const x2 = B.inner + (x - B.inner) * Math.cos(sk) - y1 * Math.sin(sk),
+							y2 = (x - B.inner) * Math.sin(sk) + y1 * Math.cos(sk);
+						// 3) 원형 배치
+						return [x2 * Math.cos(phi) - y2 * Math.sin(phi), x2 * Math.sin(phi) + y2 * Math.cos(phi), z1];
+					});
+				}
+			}
+			return table;
+		}
+		const build = (reverse) => {
+			const table = makeTable(reverse);
+			return buildShape((th) => table[Math.round((th / (Math.PI * 2)) * N) % N], null, true);
+		};
+		// 면이 바깥을 향하도록 부피 부호로 감기 방향 확인
+		let shape = build(false);
+		let vol = 0;
+		const p = shape.p;
+		for (let i = 0; i < p.length; i += 9) {
+			vol +=
+				p[i] * (p[i + 4] * p[i + 8] - p[i + 5] * p[i + 7]) -
+				p[i + 1] * (p[i + 3] * p[i + 8] - p[i + 5] * p[i + 6]) +
+				p[i + 2] * (p[i + 3] * p[i + 7] - p[i + 4] * p[i + 6]);
+		}
+		if (vol < 0) shape = build(true);
+		return shape;
+	}
 
 	const geoA = new THREE.BufferGeometry();
 	const aPos = new THREE.BufferAttribute(new Float32Array(SHAPES[0].p), 3);
@@ -390,7 +541,7 @@
     void main(){
       vec3 n = normalize(vN);
       vec3 col = vec3(0.0);
-      const int L = 16;
+      const int L = SAMPLES;
       for (int i = 0; i < L; i++) {
         float s = float(i) / float(L) * uBlur;
         float R = samp(n, 1.15, (uPower + s)       * uChroma).r;
@@ -460,6 +611,7 @@
 				uFringe: { value: CFG.reflectFringe },
 				uLRefl: { value: CFG.lightReflect },
 			},
+			defines: { SAMPLES },
 			vertexShader: glassVS,
 			fragmentShader: glassFS,
 			side,
@@ -472,6 +624,11 @@
 	backMat.uniforms.uTex.value = rtBg.texture;
 	frontMat.uniforms.uTex.value = rtBack.texture;
 
+	// 모바일에서 메모리가 부족하면 브라우저가 WebGL을 회수했다가 돌려줌 → 돌아오면 타이틀 텍스처 다시 올림
+	canvas.addEventListener("webglcontextrestored", () => {
+		textTex.needsUpdate = true;
+	});
+
 	/* ---------- 리사이즈 / 입력 ---------- */
 	let W = 0,
 		H = 0;
@@ -482,7 +639,7 @@
 		rtBg.setSize(W * DPR, H * DPR);
 		rtBack.setSize(W * DPR, H * DPR);
 		res.value.set(W * DPR, H * DPR);
-		drawTitle(W, H);
+		redrawTitle(W, H);
 		camera.aspect = W / H;
 		camera.position.z = W / H < 0.9 ? (10 / (W / H)) * 0.8 : 10;
 		camera.updateProjectionMatrix();
@@ -504,7 +661,8 @@
 
 	/* ---------- 모핑: 도형 클릭 시 다음 도형으로 (너트 → 링 → 큐브 → 반복) ---------- */
 	const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-	const stage = { from: 0, to: 1, start: -1 }; // start < 0 이면 대기 중
+	const START = Math.max(0, Math.min(SHAPES.length - 1, CFG.startShape | 0));
+	const stage = { from: START, to: (START + 1) % SHAPES.length, start: -1 }; // start < 0 이면 대기 중
 	function stageAt(t) {
 		if (stage.start < 0) return { from: stage.from, to: stage.to, u: 0 };
 		const c = (t - stage.start) / MORPH;
@@ -604,7 +762,7 @@
 		qB = new THREE.Quaternion();
 	const eA = new THREE.Euler(),
 		eB = new THREE.Euler();
-	let curFrom = 0;
+	let curFrom = -1; // 첫 프레임에 시작 도형 쌍을 올림
 
 	let visible = true;
 	new IntersectionObserver(([en]) => {
@@ -621,7 +779,7 @@
 		glowP.y += (glowT.y - glowP.y) * ge;
 		glow.value.set(glowP.x * DPR, (H - glowP.y) * DPR);
 
-		const st = reduce ? { from: 0, to: 1, u: 0 } : stageAt(t);
+		const st = reduce ? { from: START, to: (START + 1) % SHAPES.length, u: 0 } : stageAt(t);
 		if (st.from !== curFrom) {
 			setPair(st.from, st.to);
 			curFrom = st.from;
@@ -640,6 +798,7 @@
 			[0.42 + sway * 0.12 + tilt.x, -0.35 + Math.sin(t * 0.27) * 0.25 * m + mouse.x * 0.45, -0.12 + Math.sin(t * 0.2) * 0.05 * m], // 너트
 			[0.85 + sway * 0.1 + tilt.x, -0.3 + Math.sin(t * 0.3) * 0.2 * m + mouse.x * 0.4, -0.4 + tilt.z], // 링 (사진처럼 비스듬히 누운 각도)
 			[0.55 + tilt.x, 0.6 + spin + mouse.x * 0.4, 0.12 + tilt.z], // 큐브
+			[0.3 + sway * 0.1 + tilt.x, -0.28 + Math.sin(t * 0.3) * 0.2 * m + mouse.x * 0.4, -spin * 0.6 + tilt.z], // 유리 블록 (정면에서 천천히 회전)
 		];
 		eA.set(...pose[st.from]);
 		eB.set(...pose[st.to]);

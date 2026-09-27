@@ -7,7 +7,7 @@
 	z-index: 99;
 	position: fixed;
 	top: 40px;
-	left: 40px;
+	left: 80px;
 }
 
 #header .logo h1 {
@@ -23,8 +23,8 @@
 #header #gnb {
 	z-index: 99;
 	position: fixed;
-	right: 40px;
 	top: 40px;
+	right: 80px;
 }
 
 #header #gnb > ul {
@@ -64,17 +64,21 @@
 	}
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1440px) {
 	#header .logo h1 {
-		top: 16px;
-		left: 16px;
+		left: 40px;
 	}
+	#header #gnb {
+		right: 40px;
+	}
+}
 
+@media (max-width: 1024px) {
 	.m_menu_btn {
 		display: block;
 		position: fixed;
-		top: 16px;
-		right: 16px;
+		top: 40px;
+		right: 40px;
 	}
 
 	.m_menu_btn > button {
@@ -145,4 +149,17 @@
 		transform: translate(0, -50%);
 		background: url(../images/arrow_icon.svg) no-repeat center center;
 	}
+}
+
+@media (max-width: 768px) {
+	#header .logo h1 {
+		top: 20px;
+		left: 20px;
+	}
+	.m_menu_btn {
+		top: 20px;
+		right: 20px;
+	}
+}
+@media (max-width: 480px) {
 }

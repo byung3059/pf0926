@@ -1,16 +1,46 @@
 .canvas_wrap {
 	height: 100vh;
-	background: #fff;
+	background: var(--bg-color);
 }
 
 #project_visual {
+	position: relative;
+
 	.slg {
 		display: none;
+	}
+
+	// WebGL을 못 쓰는 기기: 캔버스 대신 DOM 타이틀 표시 (canvas.js가 .is-no-webgl 추가)
+	&.is-no-webgl .slg {
+		z-index: 1;
+		position: absolute;
+		left: 80px;
+		bottom: 80px;
+		display: block;
+
+		h2 {
+			font-family: "Unbounded", sans-serif;
+			font-size: 140px;
+			font-weight: 900;
+			line-height: 1;
+			text-transform: uppercase;
+		}
+	}
+}
+
+@media (max-width: 1024px) {
+	#project_visual.is-no-webgl .slg {
+		left: 20px;
+		bottom: 40px;
+
+		h2 {
+			font-size: 11.5vw;
+		}
 	}
 }
 
 #project_site {
-	padding: 240px 40px;
+	padding: 240px 80px;
 
 	h2 {
 		margin-bottom: 80px;
@@ -23,7 +53,7 @@
 	.pro_list {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
-		gap: 40px;
+		gap: 120px 40px;
 	}
 
 	.pro_site {
@@ -50,55 +80,95 @@
 					color: #222;
 				}
 			}
-			&::before {
-				content: "SITE VIEW";
-				z-index: 9;
-				position: absolute;
-				top: 0;
-				left: 0;
-				width: 100%;
-				height: 100%;
-				background: rgba($color: #000000, $alpha: 0.8);
-
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				flex-direction: column;
-
-				font-size: 40px;
-				line-height: 1;
-				font-weight: 900;
-				color: #fff;
-
-				opacity: 0;
-				visibility: hidden;
-
-				transition: 0.3s;
-			}
-			&:hover {
-				&::before {
-					opacity: 1;
-					visibility: visible;
-				}
-			}
 		}
 
 		@for $i from 1 through 10 {
 			&.--#{if($i < 10, "0" + $i, $i)} {
 				a {
-					background: url("/images/#{$i}.jpg") no-repeat center center/cover;
+					background: url("../images/#{$i}.jpg") no-repeat center center/cover;
 				}
 			}
 		}
 	}
 }
+
+.project_fx_canvas {
+	z-index: 1;
+	position: fixed;
+	top: 0;
+	left: 0;
+	pointer-events: none;
+}
+
+#project_site {
+	h2.fx-title {
+		padding-top: 0.1em;
+		overflow: hidden;
+	}
+	.fx-title-char {
+		display: inline-block;
+		will-change: transform;
+	}
+
+	.pro_site {
+		// GSAP transform 때문에 a가 쌓임 맥락이 되므로 a 자체를 WebGL 캔버스(z-index: 1) 위로
+		> a {
+			z-index: 2;
+		}
+		a p {
+			z-index: 2;
+
+			&.fx-slot {
+				display: flex;
+				height: 1.1em;
+				line-height: 1.1;
+				white-space: nowrap;
+				overflow: hidden;
+			}
+		}
+		&.is-gl a {
+			background: none !important;
+		}
+	}
+	.fx-slot-col {
+		display: flex;
+		flex-direction: column;
+		will-change: transform;
+
+		span {
+			display: block;
+		}
+	}
+}
+
 @media (max-width: 1440px) {
+	#project_site {
+		padding: 200px 40px;
+	}
+}
+@media (max-width: 768px) {
+	#project_site {
+		padding: 160px 20px;
+	}
+	#project_site .pro_list {
+		grid-template-columns: repeat(1, 1fr);
+		gap: 80px;
+	}
+}
+@media (max-width: 480px) {
+	#project_site {
+		padding: 80px 20px;
+	}
+	#project_site h2 {
+		margin-bottom: 40px;
+		font-size: 40px;
+	}
 	#project_site .pro_list {
 		gap: 24px;
 	}
 	#project_site .pro_site a p {
-		bottom: 24px;
-		left: 24px;
-		font-size: 32px;
+		left: 16px;
+		bottom: 16px;
+		font-size: 18px;
 	}
 }
