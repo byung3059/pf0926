@@ -38,7 +38,7 @@
 			textX: 0, // 가로 여백(px): left면 왼쪽에서, right면 오른쪽에서, center면 가운데에서 이동(+오른쪽)
 			textY: 0, // 세로 여백(px): top이면 위에서, bottom이면 아래에서, center면 가운데에서 이동(+아래)
 			morph: 1.6, // 변형 시간(초)
-			startShape: 3, // 처음 보이는 도형 (0 너트, 1 링, 2 큐브, 3 유리 블록)
+			startShape: 0, // 처음 보이는 도형 (0 너트, 1 링, 2 큐브)
 			mobileDpr: 1.5, // 모바일 최대 해상도 배율 (PC는 2)
 			mobileSamples: 8, // 모바일 유리 셰이더 샘플 수 (PC는 16, 낮을수록 가볍고 번짐이 거칠어짐)
 		},
@@ -52,19 +52,21 @@
 	if (GC.bgGlowEase === undefined && CC.glowEase !== undefined) CFG.bgGlowEase = CC.glowEase;
 	["bgColor", "bgColor2", "textColor", "pointColor", "glassColor"].forEach((k) => (CFG[k] = String(CFG[k]).trim()));
 	if (!Array.isArray(CFG.clear) || CFG.clear.length < 3) CFG.clear = [0, 1, 0];
-	// 유리 블록 도형 모양 (GLASS_CONFIG.blades 로 일부만 덮어써도 됨)
-	CFG.blades = Object.assign(
+	// 변형 중 조각 효과: 도형이 바뀌는 도중에 둘레가 조각(블록)으로 갈라졌다가 다음 도형으로 모임
+	// (GLASS_CONFIG.shatter 로 일부만 덮어써도 됨)
+	CFG.shatter = Object.assign(
 		{
-			count: 6, // 블록 개수
-			inner: 0.45, // 중심에서 블록 안쪽 끝까지 거리
-			length: 1.65, // 블록 길이 (바깥 방향)
-			width: 1.05, // 블록 폭
-			thick: 0.42, // 블록 두께
+			amount: 0.8, // 조각나는 정도 0~1 (0 = 조각 없이 매끄럽게, 1 = 중간에 완전히 조각 상태)
+			count: 6, // 조각 개수
+			inner: 0.45, // 중심에서 조각 안쪽 끝까지 거리
+			length: 1.65, // 조각 길이 (바깥 방향)
+			width: 1.05, // 조각 폭
+			thick: 0.42, // 조각 두께
 			round: 0.14, // 모서리 둥글기
 			twist: 30, // 프로펠러처럼 비튼 각도(도)
 			skew: 24, // 중심에서 옆으로 비껴 나가는 각도(도)
 		},
-		(window.GLASS_CONFIG || {}).blades || {},
+		(window.GLASS_CONFIG || {}).shatter || {},
 	);
 	const MORPH = CFG.morph;
 
@@ -373,16 +375,15 @@
 		buildShape(ringProf(2.0, 0.72, 1.0, 0.34, 0.22), new THREE.Matrix4().makeRotationX(Math.PI / 2), true),
 		// 2: 정육면체
 		buildShape(lineProf({ outB: polyR(4, 2.6 / Math.SQRT2, SQ), outT: polyR(4, 2.6 / Math.SQRT2, SQ), inT: zero, inB: zero, y0: -1.3, y1: 1.3 })),
-		// 3: 유리 블록 (꽃잎처럼 원형 배치)
-		buildBlades(),
 	];
 	while (CFG.clear.length < SHAPES.length) CFG.clear.push(1);
+	// 변형 도중에 거쳐 가는 조각 상태 (멈춰 있을 때는 안 보임)
+	const SHATTER = buildBlades(CFG.shatter);
 
-	/* 유리 블록: 둘레 N조각을 count개 묶음으로 나눠 묶음마다 모서리 둥근 직육면체 하나를 만듦
-	   → 다른 도형과 정점 수·순서가 같아서 링/너트의 각 부분이 가까운 블록으로 갈라지며 모핑됨
-	   묶음의 첫/끝 단면은 한 점으로 모아 뚜껑(평평한 끝면)을 닫고, 블록 사이 이음은 면적 0이라 안 보임 */
-	function buildBlades() {
-		const B = CFG.blades;
+	/* 조각 상태: 둘레 N조각을 count개 묶음으로 나눠 묶음마다 모서리 둥근 직육면체 하나를 만듦
+	   → 다른 도형과 정점 수·순서가 같아서 각 부분이 가까운 조각으로 갈라졌다가 모임
+	   묶음의 첫/끝 단면은 한 점으로 모아 뚜껑(평평한 끝면)을 닫고, 조각 사이 이음은 면적 0이라 안 보임 */
+	function buildBlades(B) {
 		const COUNT = B.count,
 			LEN = B.length,
 			HW = B.width / 2,
@@ -474,6 +475,8 @@
 	geoA.setAttribute("normal", aNrm);
 	geoA.setAttribute("aPosB", bPos);
 	geoA.setAttribute("aNormB", bNrm);
+	geoA.setAttribute("aPosX", new THREE.BufferAttribute(new Float32Array(SHATTER.p), 3));
+	geoA.setAttribute("aNormX", new THREE.BufferAttribute(new Float32Array(SHATTER.n), 3));
 	geoA.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 4);
 	function setPair(from, to) {
 		aPos.array.set(SHAPES[from].p);
@@ -488,16 +491,18 @@
 	scene.add(prism);
 
 	const morph = { value: 0 };
+	const shatter = { value: 0 }; // 조각 상태로 끌려가는 정도 (변형 중간에 최대)
 	const clear = { value: 0 };
 	const CLEAR = CFG.clear; // 도형별 투명도 (너트, 링, 큐브)
 
 	const glassVS = `
-    attribute vec3 aPosB; attribute vec3 aNormB;
-    uniform float uMorph;
+    attribute vec3 aPosB; attribute vec3 aNormB; attribute vec3 aPosX; attribute vec3 aNormX;
+    uniform float uMorph, uShatter;
     varying vec3 vN; varying vec3 vEye;
     void main(){
-      vec3 p = mix(position, aPosB, uMorph);
-      vec3 n = mix(normal, aNormB, uMorph) + 1e-5;
+      // A → B 보간 위에, 변형 중간일수록 조각 상태(X) 쪽으로 끌려감
+      vec3 p = mix(mix(position, aPosB, uMorph), aPosX, uShatter);
+      vec3 n = mix(mix(normal, aNormB, uMorph), aNormX, uShatter) + 1e-5;
       vec4 wp = modelMatrix * vec4(p, 1.0);
       vN = normalize(mat3(modelMatrix) * n);
       vEye = normalize(wp.xyz - cameraPosition);
@@ -591,6 +596,7 @@
 				uTex: { value: null },
 				uRes: res,
 				uMorph: morph,
+				uShatter: shatter,
 				uClear: clear,
 				uPower: { value: CFG.refraction },
 				uChroma: { value: CFG.chroma },
@@ -786,6 +792,8 @@
 		}
 		const u = st.u;
 		morph.value = u;
+		// 변형 중간(u = 0.5)에 가장 많이 조각남, 시작·끝에는 0
+		shatter.value = Math.sin(u * Math.PI) * CFG.shatter.amount;
 		clear.value = CLEAR[st.from] + (CLEAR[st.to] - CLEAR[st.from]) * u;
 
 		tilt.x += (mouse.y * 0.25 - tilt.x) * 0.05;
@@ -798,7 +806,6 @@
 			[0.42 + sway * 0.12 + tilt.x, -0.35 + Math.sin(t * 0.27) * 0.25 * m + mouse.x * 0.45, -0.12 + Math.sin(t * 0.2) * 0.05 * m], // 너트
 			[0.85 + sway * 0.1 + tilt.x, -0.3 + Math.sin(t * 0.3) * 0.2 * m + mouse.x * 0.4, -0.4 + tilt.z], // 링 (사진처럼 비스듬히 누운 각도)
 			[0.55 + tilt.x, 0.6 + spin + mouse.x * 0.4, 0.12 + tilt.z], // 큐브
-			[0.3 + sway * 0.1 + tilt.x, -0.28 + Math.sin(t * 0.3) * 0.2 * m + mouse.x * 0.4, -spin * 0.6 + tilt.z], // 유리 블록 (정면에서 천천히 회전)
 		];
 		eA.set(...pose[st.from]);
 		eB.set(...pose[st.to]);

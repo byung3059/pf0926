@@ -28,7 +28,7 @@
 				textColor: "#ffffff", // 타이틀 글자색
 				pointColor: "#ffffff", // 포인트 점 색
 				glassColor: "#ffffff", // 유리 색 (흰색 = 무색)
-				clear: [1, 1, 1, 1], // 도형별 투명도 0~1 (너트, 링, 큐브, 유리 블록)
+				clear: [1, 1, 1], // 도형별 투명도 0~1 (너트, 링, 큐브)
 				chroma: 0.45, // 무지개 번짐 세기 (0 = 번짐 없음)
 				saturation: 1.15, // 채도 (0 = 흑백)
 				refraction: 1, // 굴절 세기
@@ -45,7 +45,7 @@
 				lightReflect: 0.5, // 밝은 반사 띠 세기 0~1 (어두운 배경에서 입체감)
 
 				// 뒤 타이틀 글자
-				fontFamily: "Unbounded", // 폰트 (페이지에 로드된 폰트)
+				fontFamily: "Paperlogy", // 폰트 (페이지에 로드된 폰트)
 				textWeight: 900, // 굵기
 				textSize: 140, // 크기(px) — 화면 1024px 초과
 				textSizeM: 11.5, // 크기(vw) — 화면 1024px 이하
@@ -59,7 +59,7 @@
 				// 바꿀 수 있는 값: fontFamily, textWeight, textSize, textSizeM, lineHeight, textAlign, textVAlign, textX, textY, textColor, pointColor
 				// textSize(px)를 적은 구간은 1024px 이하여도 textSizeM(vw) 대신 textSize(px) 사용
 				responsive: {
-					1440: { textX: 40, textY: 40 },
+					1660: { textX: 40, textY: 40 },
 					768: { textX: 20, textY: 40 },
 					480: { textY: 24 },
 				},
@@ -70,14 +70,15 @@
 				dragInertia: 0.95, // 놓은 뒤 관성 0~1 (1에 가까울수록 오래 돎, 0 = 바로 멈춤)
 
 				// 도형
-				startShape: 3, // 처음 보이는 도형 (0 너트, 1 링, 2 큐브, 3 유리 블록) — 클릭하면 다음 도형으로 변형
-				blades: {
-					// 유리 블록 도형 모양
-					count: 6, // 블록 개수
-					inner: 0.45, // 중심에서 블록 안쪽 끝까지 거리 (클수록 가운데 구멍이 커짐)
-					length: 1.65, // 블록 길이 (바깥 방향)
-					width: 1.05, // 블록 폭
-					thick: 0.42, // 블록 두께
+				startShape: 0, // 처음 보이는 도형 (0 너트, 1 링, 2 큐브) — 클릭하면 다음 도형으로 변형
+				shatter: {
+					// 변형 중 조각 효과: 도형이 바뀌는 도중에 조각으로 갈라졌다가 다음 도형으로 모임 (멈춰 있을 땐 안 보임)
+					amount: 0.8, // 조각나는 정도 0~1 (0 = 조각 없이 매끄럽게, 1 = 중간에 완전히 조각 상태)
+					count: 6, // 조각 개수
+					inner: 0.45, // 중심에서 조각 안쪽 끝까지 거리 (클수록 가운데 구멍이 커짐)
+					length: 1.65, // 조각 길이 (바깥 방향)
+					width: 1.05, // 조각 폭
+					thick: 0.42, // 조각 두께
 					round: 0.1, // 모서리 둥글기 (두께의 절반보다 작게)
 					twist: 30, // 프로펠러처럼 비튼 각도(도) — 0 = 정면으로 납작, 90 = 옆면이 보임
 					skew: 24, // 중심에서 옆으로 비껴 나가는 각도(도) — 0 = 중심에서 곧게 뻗음

@@ -21,6 +21,10 @@
 			radius: 16, // 이미지 모서리 둥글기(px) — style.scss의 border-radius와 동일하게
 			skewMax: 4, // (모바일) 스크롤 속도로 기울어지는 최대 각도(도)
 			mobileReveal: 0.5, // (모바일) 카드 등장 transform 세기 0~1 — 크기·밀림·회전 (1 = PC와 같음)
+			// 카드가 1열일 때(480px 이하) 등장 — 교차 방향 반대 + 탄성
+			singleScale: 0.85, // 시작 크기
+			singleX: 0.12, // 옆에서 들어오는 거리 (화면 너비 대비)
+			singleRot: 4, // 시작 회전 각도(도)
 			skewSpeed: 300, // (모바일) 스크롤 속도(px/초) ÷ 이 값 = 기울기 각도 — 작을수록 조금만 스크롤해도 많이 기울어짐
 		},
 		window.PROJECT_FEATURED_CONFIG || {}
@@ -165,6 +169,11 @@
 
 		/* 2) 카드 */
 		var items = [];
+		var list = section.querySelector(".pro_list");
+		// 실제 grid 열 개수로 판단 (SCSS의 breakpoint가 바뀌어도 그대로 동작)
+		function isSingleColumn() {
+			return !!list && getComputedStyle(list).gridTemplateColumns.trim().split(/\s+/).length === 1;
+		}
 		gsap.utils.toArray("#project_site .pro_site > a").forEach(function (a, index) {
 			var item = {
 				a: a,
@@ -193,21 +202,42 @@
 
 			// 카드 등장: 카드(a) 자체를 움직여서 제목·호버 오버레이가 이미지와 함께 움직임
 			// WebGL 이미지는 이 값을 그대로 읽어서 같은 위치에 그림
-			// 크기 70% → 100% 1.5초, 위치(좌우 번갈아 화면 너비 5%)·회전 2초 (expo.out)
+			// - 2열: 원본 그대로 — 크기 70% → 100% 1.5초, 위치(좌우 번갈아 화면 너비 5%)·회전 2초 (expo.out)
+			// - 1열: 교차 방향을 반대로 + 탄성 있게 (살짝 지나쳤다 돌아옴)
+			// 들어올 때마다 현재 레이아웃(열 개수)을 다시 확인 → 화면 회전·리사이즈에도 맞게
 			var side = (index % 2) - 0.5;
 			var reveal = MOBILE ? cfg.mobileReveal : 1; // PC는 WebGL 마스크와 맞춰야 해서 항상 1
-			tl.fromTo(a, { scale: 1 - 0.3 * reveal }, { scale: 1, duration: 1.5, ease: "expo.out" }, 0);
-			tl.fromTo(
-				a,
-				{
-					x: function () {
-						return side * -window.innerWidth * 0.1 * reveal;
-					},
+			function revealFrom() {
+				if (isSingleColumn()) {
+					var s = -side; // 반대 방향
+					return {
+						scale: cfg.singleScale,
+						x: s * -window.innerWidth * cfg.singleX,
+						rotation: s * 2 * cfg.singleRot,
+					};
+				}
+				return {
+					scale: 1 - 0.3 * reveal,
+					x: side * -window.innerWidth * 0.1 * reveal,
 					rotation: side * 0.1 * (180 / Math.PI) * reveal,
-				},
-				{ x: 0, rotation: 0, duration: 2, ease: "expo.out" },
-				0
-			);
+				};
+			}
+			function playReveal() {
+				var from = revealFrom();
+				gsap.killTweensOf(a, "scale,x,rotation");
+				if (isSingleColumn()) {
+					gsap.fromTo(a, { scale: from.scale }, { scale: 1, duration: 1, ease: "back.out(2.2)" });
+					gsap.fromTo(a, { x: from.x, rotation: from.rotation }, { x: 0, rotation: 0, duration: 1.4, ease: "elastic.out(1, 0.55)" });
+				} else {
+					gsap.fromTo(a, { scale: from.scale }, { scale: 1, duration: 1.5, ease: "expo.out" });
+					gsap.fromTo(a, { x: from.x, rotation: from.rotation }, { x: 0, rotation: 0, duration: 2, ease: "expo.out" });
+				}
+			}
+			function resetReveal() {
+				gsap.killTweensOf(a, "scale,x,rotation");
+				gsap.set(a, revealFrom());
+			}
+			resetReveal();
 
 			ScrollTrigger.create({
 				trigger: item.box,
@@ -215,8 +245,13 @@
 				end: "bottom top",
 				onToggle: function (self) {
 					item.active = self.isActive;
-					if (self.isActive) tl.invalidate().restart();
-					else tl.pause(0);
+					if (self.isActive) {
+						tl.restart();
+						playReveal();
+					} else {
+						tl.pause(0);
+						resetReveal();
+					}
 				},
 			});
 
