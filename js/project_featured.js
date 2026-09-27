@@ -5,7 +5,9 @@
  * 3) 카드 이미지: 작게 기울어진 상태에서 펼쳐지며 등장 (GSAP이 셰이더 값을 트윈)
  * 4) 스크롤 속도만큼 이미지가 화면 위·아래에서 바깥으로 휘어짐 (WebGL 셰이더)
  * - 화면에서 벗어나면 초기화되고, 다시 들어오면 재생됨
- * - WebGL/텍스처를 쓸 수 없으면 이미지는 기존 CSS 배경 그대로, 텍스트 효과만 동작
+ * - 모바일(터치 기기)은 WebGL을 쓰지 않음: 고정 캔버스가 브라우저 스크롤보다 늦게 따라와 버벅이기 때문
+ *   → 이미지는 CSS 배경 그대로, 4)는 스크롤 속도만큼 카드가 기울어지는 효과(skewY)로 대체
+ * - WebGL/텍스처를 쓸 수 없는 PC도 모바일과 같은 방식으로 동작
  */
 (function () {
 	if (!window.gsap || !window.ScrollTrigger) return;
@@ -17,14 +19,17 @@
 			strengthScale: 0.5, // 스크롤 속도 → 굴절 배수 (원본 0.5)
 			decay: 10, // 스크롤 멈춘 뒤 펴지는 속도
 			radius: 16, // 이미지 모서리 둥글기(px) — style.scss의 border-radius와 동일하게
+			skewMax: 4, // (모바일) 스크롤 속도로 기울어지는 최대 각도(도)
+			mobileReveal: 0.5, // (모바일) 카드 등장 transform 세기 0~1 — 크기·밀림·회전 (1 = PC와 같음)
+			skewSpeed: 300, // (모바일) 스크롤 속도(px/초) ÷ 이 값 = 기울기 각도 — 작을수록 조금만 스크롤해도 많이 기울어짐
 		},
 		window.PROJECT_FEATURED_CONFIG || {}
 	);
 
-	// 원본 ease.lusion = cubic-bezier(.35, 0, 0, 1)
-	// 모바일(터치 기기·작은 화면)은 해상도 배율을 낮춰 GPU 부담을 줄임
-	var MOBILE = matchMedia("(pointer: coarse)").matches || Math.min(screen.width, screen.height) <= 768;
+	// 모바일(마우스 없는 터치 기기)은 WebGL 대신 CSS 이미지 + 기울기 효과
+	var MOBILE = matchMedia("(hover: none) and (pointer: coarse)").matches;
 
+	// 원본 ease.lusion = cubic-bezier(.35, 0, 0, 1)
 	var EASE_LUSION = "power4.out";
 	if (window.CustomEase) {
 		gsap.registerPlugin(CustomEase);
@@ -190,14 +195,15 @@
 			// WebGL 이미지는 이 값을 그대로 읽어서 같은 위치에 그림
 			// 크기 70% → 100% 1.5초, 위치(좌우 번갈아 화면 너비 5%)·회전 2초 (expo.out)
 			var side = (index % 2) - 0.5;
-			tl.fromTo(a, { scale: 0.7 }, { scale: 1, duration: 1.5, ease: "expo.out" }, 0);
+			var reveal = MOBILE ? cfg.mobileReveal : 1; // PC는 WebGL 마스크와 맞춰야 해서 항상 1
+			tl.fromTo(a, { scale: 1 - 0.3 * reveal }, { scale: 1, duration: 1.5, ease: "expo.out" }, 0);
 			tl.fromTo(
 				a,
 				{
 					x: function () {
-						return side * -window.innerWidth * 0.1;
+						return side * -window.innerWidth * 0.1 * reveal;
 					},
-					rotation: side * 0.1 * (180 / Math.PI),
+					rotation: side * 0.1 * (180 / Math.PI) * reveal,
 				},
 				{ x: 0, rotation: 0, duration: 2, ease: "expo.out" },
 				0
@@ -223,13 +229,45 @@
 			});
 		});
 
-		/* 3) WebGL: 굴절된 이미지 그리기만 담당 */
-		if (!window.THREE) return;
+		/* 3) 모바일 / WebGL 불가: 스크롤 속도만큼 카드가 기울었다가 서서히 펴짐 (굴절 대체) */
+		function setupSkew() {
+			var cards = items.map(function (it) {
+				return it.a;
+			});
+			if (!cards.length) return;
+			var proxy = { skew: 0 };
+			var setSkew = gsap.quickSetter(cards, "skewY", "deg");
+			var clampSkew = gsap.utils.clamp(-cfg.skewMax, cfg.skewMax);
+			ScrollTrigger.create({
+				trigger: section,
+				start: "top bottom",
+				end: "bottom top",
+				onUpdate: function (self) {
+					var skew = clampSkew(self.getVelocity() / -cfg.skewSpeed);
+					// 더 세게 스크롤할 때만 갱신 → 멈추면 0으로 부드럽게 돌아옴
+					if (Math.abs(skew) > Math.abs(proxy.skew)) {
+						proxy.skew = skew;
+						gsap.to(proxy, {
+							skew: 0,
+							duration: 0.8,
+							ease: "power3",
+							overwrite: true,
+							onUpdate: function () {
+								setSkew(proxy.skew);
+							},
+						});
+					}
+				},
+			});
+		}
+
+		/* 3) PC: WebGL은 굴절된 이미지 그리기만 담당 */
+		if (MOBILE || !window.THREE) return setupSkew();
 		var renderer;
 		try {
 			renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
 		} catch (e) {
-			return;
+			return setupSkew();
 		}
 		var canvas = renderer.domElement;
 		canvas.className = "project_fx_canvas";

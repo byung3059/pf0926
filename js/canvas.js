@@ -75,8 +75,8 @@
 	canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
 	wrap.appendChild(canvas);
 
-	// 모바일(터치 기기·작은 화면)은 GPU 부담을 줄임: 해상도 배율·유리 셰이더 샘플 수·안티앨리어싱
-	const MOBILE = matchMedia("(pointer: coarse)").matches || Math.min(screen.width, screen.height) <= 768;
+	// 모바일(마우스 없는 터치 기기)은 GPU 부담을 줄임: 해상도 배율·유리 셰이더 샘플 수·안티앨리어싱
+	const MOBILE = matchMedia("(hover: none) and (pointer: coarse)").matches;
 	const SAMPLES = Math.max(1, Math.round(MOBILE ? CFG.mobileSamples : 16));
 
 	// WebGL을 못 쓰면 DOM 타이틀을 대신 보여줌 (흰 화면 방지)

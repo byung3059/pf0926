@@ -1,12 +1,38 @@
 .canvas_wrap {
-  height: 100vh;
+  height: 100svh;
   background: var(--bg-color);
 }
 
+#project_visual {
+  position: relative;
+}
 #project_visual .slg {
   display: none;
 }
+#project_visual.is-no-webgl .slg {
+  z-index: 1;
+  position: absolute;
+  left: 80px;
+  bottom: 80px;
+  display: block;
+}
+#project_visual.is-no-webgl .slg h2 {
+  font-family: "Unbounded", sans-serif;
+  font-size: 140px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
 
+@media (max-width: 1024px) {
+  #project_visual.is-no-webgl .slg {
+    left: 20px;
+    bottom: 40px;
+  }
+  #project_visual.is-no-webgl .slg h2 {
+    font-size: 11.5vw;
+  }
+}
 #project_site {
   padding: 240px 80px;
 }
@@ -155,6 +181,4 @@
     bottom: 16px;
     font-size: 18px;
   }
-}
-#project_visual{position:relative}#project_visual.is-no-webgl .slg{z-index:1;position:absolute;left:80px;bottom:80px;display:block}#project_visual.is-no-webgl .slg h2{font-family:"Unbounded",sans-serif;font-size:140px;font-weight:900;line-height:1;text-transform:uppercase}@media (max-width: 1024px){#project_visual.is-no-webgl .slg{left:20px;bottom:40px}#project_visual.is-no-webgl .slg h2{font-size:11.5vw}}
-/*# sourceMappingURL=style.css.map */
+}/*# sourceMappingURL=style.css.map */
